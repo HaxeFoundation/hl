@@ -41,6 +41,7 @@ class Window {
 
 	public function new( title : String, width : Int, height : Int, x : Int = CW_USEDEFAULT, y : Int = CW_USEDEFAULT, windowFlags : Int = RESIZABLE ) {
 		win = winCreateEx(x, y, width, height, windowFlags);
+		if( win == null ) throw "Failed to create window (" + winError() + ")";
 		this.title = title;
 		windows.push(this);
 		vsync = true;
@@ -236,6 +237,14 @@ class Window {
 	}
 
 	static function winDestroy( win : WinPtr ) {
+	}
+
+	static function winError() {
+		return @:privateAccess String.fromUTF8(win_error());
+	}
+
+	static function win_error() : hl.Bytes {
+		return null;
 	}
 
 	public static function getScreenWidth() {

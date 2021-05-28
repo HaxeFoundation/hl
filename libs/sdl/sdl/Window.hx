@@ -63,7 +63,7 @@ class Window {
 	public function new( title : String, width : Int, height : Int, x : Int = SDL_WINDOWPOS_CENTERED, y : Int = SDL_WINDOWPOS_CENTERED, sdlFlags : Int = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE ) {
 		while( true ) {
 			win = winCreateEx(x, y, width, height, sdlFlags);
-			if( win == null ) throw "Failed to create window";
+			if( win == null ) throw "Failed to create window (" + winError() + ")";
 			glctx = winGetGLContext(win);
 			if( glctx == null || !GL.init() || !testGL() ) {
 				destroy();
@@ -330,6 +330,14 @@ class Window {
 	}
 
 	static function winDestroy( win : WinPtr, gl : GLContext ) {
+	}
+
+	static function winError() {
+		return @:privateAccess String.fromUTF8(win_error());
+	}
+
+	static function win_error() : hl.Bytes {
+		return null;
 	}
 
 	static function setVsync( b : Bool ) {

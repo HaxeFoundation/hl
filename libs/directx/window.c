@@ -141,8 +141,8 @@ static LRESULT CALLBACK WndProc( HWND wnd, UINT umsg, WPARAM wparam, LPARAM lpar
 	case WM_SYSCOMMAND:
 		if( wparam == SC_KEYMENU && (lparam>>16) <= 0 )
 			return 0;
-		break;	
-	case WM_MOUSEMOVE: 
+		break;
+	case WM_MOUSEMOVE:
 		{
 			dx_events *evt = get_events(wnd);
 			if( !evt->is_over ) {
@@ -154,7 +154,7 @@ static LRESULT CALLBACK WndProc( HWND wnd, UINT umsg, WPARAM wparam, LPARAM lpar
 				evt->is_over = true;
 				addState(Enter);
 			}
-			addMouse(MouseMove,0); 
+			addMouse(MouseMove,0);
 		}
 		break;
 	case WM_MOUSELEAVE:
@@ -174,7 +174,7 @@ static LRESULT CALLBACK WndProc( HWND wnd, UINT umsg, WPARAM wparam, LPARAM lpar
 			}
 		}
 		bool repeat = (umsg == WM_KEYDOWN || umsg == WM_SYSKEYDOWN) && (lparam & 0x40000000) != 0;
-		// see 
+		// see
 		e = addEvent(wnd,(umsg == WM_KEYUP || umsg == WM_SYSKEYUP) ? KeyUp : KeyDown);
 		e->keyCode = (int)wparam;
 		e->scanCode = (lparam >> 16) & 0xFF;
@@ -201,13 +201,13 @@ static LRESULT CALLBACK WndProc( HWND wnd, UINT umsg, WPARAM wparam, LPARAM lpar
 			shift_downs[0] = false;
 			e = addEvent(wnd,KeyUp);
 			e->keyCode = VK_SHIFT | 256;
-		}			
+		}
 		if( shift_downs[1] && GetKeyState(VK_RSHIFT) >= 0 ) {
 			//printf("RSHIFT RELEASED\n");
 			shift_downs[1] = false;
 			e = addEvent(wnd,KeyUp);
 			e->keyCode = VK_SHIFT | 512;
-		}			
+		}
 		break;
 	case WM_CHAR:
 		e = addEvent(wnd,TextInput);
@@ -541,6 +541,10 @@ HL_PRIM void HL_NAME(win_destroy)(dx_window *win) {
 	DestroyWindow(win);
 }
 
+HL_PRIM vbyte *HL_NAME(win_error)() {
+	return GetLastError();
+}
+
 HL_PRIM bool HL_NAME(win_get_next_event)( dx_window *win, dx_event *e ) {
 	dx_events *buf = get_events(win);
 	hl_type *save;
@@ -593,6 +597,7 @@ DEFINE_PRIM(_VOID, win_get_position, TWIN _REF(_I32) _REF(_I32));
 DEFINE_PRIM(_F64, win_get_opacity, TWIN);
 DEFINE_PRIM(_BOOL, win_set_opacity, TWIN _F64);
 DEFINE_PRIM(_VOID, win_destroy, TWIN);
+DEFINE_PRIM(_BYTES, win_error, _NO_ARG);
 DEFINE_PRIM(_BOOL, win_get_next_event, TWIN _DYN);
 DEFINE_PRIM(_VOID, win_clip_cursor, TWIN);
 

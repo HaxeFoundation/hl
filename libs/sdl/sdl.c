@@ -592,6 +592,10 @@ HL_PRIM void HL_NAME(win_destroy)(SDL_Window *win, SDL_GLContext gl) {
 	SDL_GL_DeleteContext(gl);
 }
 
+HL_PRIM const char *HL_NAME(win_error)() {
+	return SDL_GetError();
+}
+
 #define TWIN _ABSTRACT(sdl_window)
 #define TGL _ABSTRACT(sdl_gl)
 DEFINE_PRIM(TWIN, win_create_ex, _I32 _I32 _I32 _I32 _I32);
@@ -613,6 +617,7 @@ DEFINE_PRIM(_BOOL, win_set_opacity, TWIN _F64);
 DEFINE_PRIM(_VOID, win_swap_window, TWIN);
 DEFINE_PRIM(_VOID, win_render_to, TWIN TGL);
 DEFINE_PRIM(_VOID, win_destroy, TWIN TGL);
+DEFINE_PRIM(_BYTES, win_error, _NO_ARG);
 
 // game controller
 
