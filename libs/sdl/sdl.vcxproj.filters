@@ -3,5 +3,6 @@
   <ItemGroup>
     <ClCompile Include="sdl.c" />
     <ClCompile Include="gl.c" />
+    <ClCompile Include="vulkan.c" />
   </ItemGroup>
 </Project>

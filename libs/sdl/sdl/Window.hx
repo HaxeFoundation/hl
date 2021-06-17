@@ -45,6 +45,7 @@ class Window {
 
 	var win : WinPtr;
 	var glctx : GLContext;
+	var vkctx : Vulkan.VKContext;
 	var lastFrame : Float;
 	public var title(default, set) : String;
 	public var vsync(default, set) : Bool;
@@ -61,14 +62,30 @@ class Window {
 	public var opacity(get, set) : Float;
 
 	public function new( title : String, width : Int, height : Int, x : Int = SDL_WINDOWPOS_CENTERED, y : Int = SDL_WINDOWPOS_CENTERED, sdlFlags : Int = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE ) {
+	
+		var vk = (sdlFlags & SDL_WINDOW_VULKAN) != 0;
+		if( vk && !vkInit() )
+			throw "Failed to initialize Vulkan";
+	
 		while( true ) {
 			win = winCreateEx(x, y, width, height, sdlFlags);
 			if( win == null ) throw "Failed to create window";
-			glctx = winGetGLContext(win);
-			if( glctx == null || !GL.init() || !testGL() ) {
-				destroy();
-				if( Sdl.onGlContextRetry() ) continue;
-				Sdl.onGlContextError();
+			
+			if( vk ) {
+				vkctx = winGetVulkan(win);
+				if( vkctx == null ) {
+					destroy();
+					throw "Failed to create Vulkan Context";
+				}
+				if( !vkctx.initSwapchain(width, height) )
+					throw "Failed to init Vulkan Swapchain";
+			} else {
+				glctx = winGetGLContext(win);
+				if( glctx == null || !GL.init() || !testGL() ) {
+					destroy();
+					if( Sdl.onGlContextRetry() ) continue;
+					Sdl.onGlContextError();
+				}
 			}
 			break;
 		}
@@ -236,10 +253,12 @@ class Window {
 		Set the current window you will render to (in case of multiple windows)
 	**/
 	public function renderTo() {
-		winRenderTo(win, glctx);
+		if( glctx != null ) winRenderTo(win, glctx);
 	}
 
 	public function present() {
+		if( glctx == null )
+			return;
 		if( vsync && @:privateAccess Sdl.isWin32 ) {
 			// NVIDIA OpenGL windows driver does implement vsync as an infinite loop, causing high CPU usage
 			// make sure to sleep a bit here based on how much time we spent since the last frame
@@ -254,6 +273,7 @@ class Window {
 		try winDestroy(win, glctx) catch( e : Dynamic ) {};
 		win = null;
 		glctx = null;
+		vkctx = null;
 		windows.remove(this);
 	}
 
@@ -334,5 +354,15 @@ class Window {
 
 	static function setVsync( b : Bool ) {
 	}
+	
+	@:hlNative("?sdl","vk_init")
+	static function vkInit() : Bool {
+		return false;
+	}
 
+	@:hlNative("?sdl","win_get_vulkan")
+	static function winGetVulkan( win : WinPtr ) : Vulkan.VKContext {
+		return null;
+	}
+	
 }

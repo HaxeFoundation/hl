@@ -5,7 +5,9 @@
 
 #if defined(_WIN32) || defined(__ANDROID__) || defined(HL_IOS) || defined(HL_TVOS)
 #	include <SDL.h>
+#	include <SDL_vulkan.h>
 #	include <SDL_syswm.h>
+#	define ALLOW_VULKAN
 #elif defined(HL_MAC)
 #	include <SDL.h>
 #else
@@ -425,12 +427,14 @@ DEFINE_PRIM(_BOOL, hint_value, _BYTES _BYTES);
 HL_PRIM SDL_Window *HL_NAME(win_create_ex)(int x, int y, int width, int height, int sdlFlags) {
 	SDL_Window *w;
 	// force window to match device resolution on mobile
+	if( !(sdlFlags & SDL_WINDOW_VULKAN) )
+		sdlFlags |= SDL_WINDOW_OPENGL;
 #ifdef	HL_MOBILE
 	SDL_DisplayMode displayMode;
 	SDL_GetDesktopDisplayMode(0, &displayMode);
-	w = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | sdlFlags);
+	w = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_BORDERLESS | sdlFlags);
 #else
-	w = SDL_CreateWindow("", x, y, width, height, SDL_WINDOW_OPENGL | sdlFlags);
+	w = SDL_CreateWindow("", x, y, width, height, sdlFlags);
 #endif
 #	ifdef HL_WIN
 	// force window to show even if the debugger force process windows to be hidden
@@ -449,6 +453,22 @@ HL_PRIM SDL_Window *HL_NAME(win_create)(int width, int height) {
 HL_PRIM SDL_GLContext HL_NAME(win_get_glcontext)(SDL_Window *win) {
 	return SDL_GL_CreateContext(win);
 }
+
+#ifdef ALLOW_VULKAN
+extern VkInstance vk_get_instance(void);
+extern void *vk_init_context( VkSurfaceKHR surface );
+HL_PRIM void *HL_NAME(win_get_vulkan)( SDL_Window *win ) {
+	VkInstance inst = vk_get_instance();
+	VkSurfaceKHR surface = NULL;
+	if( !SDL_Vulkan_CreateSurface(win, inst, &surface) )
+		return NULL;
+	return vk_init_context(surface);
+}
+#else
+HL_PRIM void *HL_NAME(win_get_vulkan)( SDL_Window *win ) {
+	return NULL;
+}
+#endif
 
 HL_PRIM bool HL_NAME(win_set_fullscreen)(SDL_Window *win, int mode) {
 #	ifdef HL_WIN
@@ -589,7 +609,7 @@ HL_PRIM void HL_NAME(win_render_to)(SDL_Window *win, SDL_GLContext gl) {
 
 HL_PRIM void HL_NAME(win_destroy)(SDL_Window *win, SDL_GLContext gl) {
 	SDL_DestroyWindow(win);
-	SDL_GL_DeleteContext(gl);
+	if( gl ) SDL_GL_DeleteContext(gl);
 }
 
 #define TWIN _ABSTRACT(sdl_window)
@@ -597,6 +617,7 @@ HL_PRIM void HL_NAME(win_destroy)(SDL_Window *win, SDL_GLContext gl) {
 DEFINE_PRIM(TWIN, win_create_ex, _I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(TWIN, win_create, _I32 _I32);
 DEFINE_PRIM(TGL, win_get_glcontext, TWIN);
+DEFINE_PRIM(_ABSTRACT(vk_context), win_get_vulkan, TWIN);
 DEFINE_PRIM(_BOOL, win_set_fullscreen, TWIN _I32);
 DEFINE_PRIM(_VOID, win_resize, TWIN _I32);
 DEFINE_PRIM(_VOID, win_set_title, TWIN _BYTES);
