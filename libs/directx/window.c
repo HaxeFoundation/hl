@@ -42,6 +42,8 @@ typedef struct {
 	EventType type;
 	int mouseX;
 	int mouseY;
+	int mouseXRel;
+	int mouseYRel;
 	int button;
 	int wheelDelta;
 	WindowStateChange state;
@@ -63,31 +65,87 @@ typedef struct {
 	int event_count;
 	int next_event;
 	bool is_over;
+	bool is_focused;
 } dx_events;
 
 typedef struct HWND__ dx_window;
 
 static dx_window *cur_clip_cursor_window = NULL;
+static DWORD capture_refresh_time = 0;
+typedef enum {
+	SkipUpdate = 1,
+	InTitleClick = 2,
+	LButton = 4,
+	RButton = 8,
+	MButton = 16,
+	XButton1 = 32,
+	XButton2 = 64
+} mouse_capture_flags;
+static int disable_capture = 0;
+static bool capture_mouse = false;
+static bool relative_mouse = false;
 
 typedef HCURSOR dx_cursor;
 
 static dx_cursor cur_cursor = NULL;
 static bool show_cursor = true;
 
+#define CURSOR_VISIBLE show_cursor && !relative_mouse
+
 static dx_events *get_events(HWND wnd) {
 	return (dx_events*)GetWindowLongPtr(wnd,GWLP_USERDATA);
 }
 
 static void updateClipCursor(HWND wnd) {
-	if (cur_clip_cursor_window == wnd) {
+	if ( disable_capture ) {
+		ClipCursor(NULL);
+		capture_refresh_time = GetTickCount();
+		return;
+	}
+	if ( !capture_mouse && !relative_mouse ) {
+		cur_clip_cursor_window = NULL;
+		ClipCursor(NULL);
+	} else {
+		cur_clip_cursor_window = wnd;
 		RECT rect;
 
-		GetClientRect(wnd, &rect);
-		ClientToScreen(wnd, (LPPOINT)& rect.left);
-		ClientToScreen(wnd, (LPPOINT)& rect.right);
-
-		ClipCursor(&rect);
+		if ( GetClientRect(wnd, &rect) && !IsRectEmpty(&rect) ) {
+			ClientToScreen(wnd, (LPPOINT)&rect.left);
+			ClientToScreen(wnd, (LPPOINT)&rect.right);
+			ClipCursor(&rect);
+		}
 	}
+	capture_refresh_time = GetTickCount();
+}
+static void checkCaptureFlags( HWND wnd ) {
+	if ( !(GetAsyncKeyState(VK_LBUTTON) & 0x8000) )
+		disable_capture &= ~LButton;
+	if ( !(GetAsyncKeyState(VK_RBUTTON) & 0x8000) )
+		disable_capture &= ~RButton;
+	if ( !(GetAsyncKeyState(VK_MBUTTON) & 0x8000) )
+		disable_capture &= ~MButton;
+	if ( !(GetAsyncKeyState(VK_XBUTTON1) & 0x8000) )
+		disable_capture &= ~XButton1;
+	if ( !(GetAsyncKeyState(VK_XBUTTON2) & 0x8000) )
+		disable_capture &= ~XButton2;
+}
+
+static bool setRelativeMode( HWND wnd, bool enabled ) {
+	RAWINPUTDEVICE mouse = { 0x01, 0x02, 0, NULL }; /* Mouse: UsagePage = 1, Usage = 2 */
+
+	if ( relative_mouse == enabled ) return true;
+	
+	if ( !enabled ) {
+		mouse.dwFlags |= RIDEV_REMOVE;
+		if ( show_cursor ) SetCursor(cur_cursor);
+	} else {
+		SetCursor(NULL);
+	}
+	
+	relative_mouse = enabled;
+	updateClipCursor(wnd);
+
+	return RegisterRawInputDevices(&mouse, 1, sizeof(RAWINPUTDEVICE)) || !enabled;
 }
 
 static dx_event *addEvent( HWND wnd, EventType type ) {
@@ -154,7 +212,62 @@ static LRESULT CALLBACK WndProc( HWND wnd, UINT umsg, WPARAM wparam, LPARAM lpar
 				evt->is_over = true;
 				addState(Enter);
 			}
-			addMouse(MouseMove,0); 
+			if ( !relative_mouse )
+				addMouse(MouseMove, 0);
+		}
+		break;
+	case WM_INPUT:
+		{
+			dx_events* evt = get_events(wnd);
+			if ( evt->is_focused ) {
+				// Only handle raw input when window is active
+				HRAWINPUT hRawInput = (HRAWINPUT)lparam;
+				RAWINPUT inp;
+				UINT size = sizeof(inp);
+				GetRawInputData(hRawInput, RID_INPUT, &inp, &size, sizeof(RAWINPUTHEADER));
+				
+				// Ignore pseudo-movement from touch events.
+				if ( inp.header.dwType == RIM_TYPEMOUSE ) {
+					RAWMOUSE* mouse = &inp.data.mouse;
+					
+					if ( (mouse->usFlags & 0x01) == MOUSE_MOVE_RELATIVE ) {
+						if ( mouse->lLastX != 0 || mouse->lLastY != 0 ) {
+							e = addEvent(wnd, MouseMove);
+							e->mouseX = 0;
+							e->mouseY = 0;
+							e->button = 0;
+							e->mouseXRel = mouse->lLastX;
+							e->mouseYRel = mouse->lLastY;
+						}
+						
+					} else if ( mouse->lLastX || mouse->lLastY ) {
+						// Absolute movement - simulate relative movement
+						
+						static POINT lastMousePos;
+						
+						bool virtual_desktop = mouse->usFlags & MOUSE_VIRTUAL_DESKTOP;
+						int w = GetSystemMetrics(virtual_desktop ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
+						int h = GetSystemMetrics(virtual_desktop ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
+						int x = (int)(((float)mouse->lLastX / 65535.0f) * w);
+						int y = (int)(((float)mouse->lLastY / 65535.0f) * h);
+
+						if (lastMousePos.x == 0 && lastMousePos.y == 0) {
+							lastMousePos.x = x;
+							lastMousePos.y = y;
+						} else {
+							e = addEvent(wnd, MouseMove);
+							e->mouseX = 0;
+							e->mouseY = 0;
+							e->button = 0;
+							e->mouseXRel = x - lastMousePos.x;
+							e->mouseYRel = y - lastMousePos.y;
+							lastMousePos.x = x;
+							lastMousePos.y = y;
+						}
+						
+					}
+				}
+			}
 		}
 		break;
 	case WM_MOUSELEAVE:
@@ -207,20 +320,75 @@ static LRESULT CALLBACK WndProc( HWND wnd, UINT umsg, WPARAM wparam, LPARAM lpar
 			shift_downs[1] = false;
 			e = addEvent(wnd,KeyUp);
 			e->keyCode = VK_SHIFT | 512;
-		}			
+		}
+
+		if ( ( capture_mouse || relative_mouse ) && get_events(wnd)->is_focused ) {
+			// Refresh the cursor capture every 3s in case some app hijacks it.
+			if ( disable_capture ) {
+				checkCaptureFlags(wnd);
+				if (!disable_capture || disable_capture == SkipUpdate) {
+					disable_capture = 0;
+					updateClipCursor(wnd);
+				}
+			} else if ( GetTickCount() - capture_refresh_time >= 3000 ) {
+				disable_capture &= ~SkipUpdate;
+				updateClipCursor(wnd);
+			}
+		}
+
 		break;
 	case WM_CHAR:
 		e = addEvent(wnd,TextInput);
 		e->keyCode = (int)wparam;
 		e->keyRepeat = (lparam & 0xFFFF) != 0;
 		break;
+	case WM_NCACTIVATE:
+		// Allow user to interact with the titlebar without clipping.
+		disable_capture |= SkipUpdate;
+		ClipCursor(NULL);
+		break;
+	case WM_ACTIVATE:
+		// HIWORD(wparam) = minimized flag
+		if (!(bool)HIWORD(wparam) && LOWORD(wparam) != WA_INACTIVE) {
+
+			if ( LOWORD(wparam) == WA_CLICKACTIVE ) {
+				if ( GetAsyncKeyState(VK_LBUTTON) )
+					disable_capture |= LButton;
+				if ( GetAsyncKeyState(VK_RBUTTON) )
+					disable_capture |= RButton;
+				if ( GetAsyncKeyState(VK_MBUTTON) )
+					disable_capture |= MButton;
+				if ( GetAsyncKeyState(VK_XBUTTON1) )
+					disable_capture |= XButton1;
+				if ( GetAsyncKeyState(VK_XBUTTON2) )
+					disable_capture |= XButton2;
+			}
+
+			checkCaptureFlags(wnd);
+			updateClipCursor(wnd);
+		} else {
+			ClipCursor(NULL);
+		}
+		break;
+	case WM_NCLBUTTONDOWN:
+		disable_capture |= InTitleClick;
+		ClipCursor(NULL);
+		break;
+	case WM_CAPTURECHANGED:
+		disable_capture &= ~InTitleClick;
+		checkCaptureFlags(wnd);
+		updateClipCursor(wnd);
+		break;
 	case WM_SETFOCUS:
+		get_events(wnd)->is_focused = true;
 		updateClipCursor(wnd);
 		addState(Focus);
 		break;
 	case WM_KILLFOCUS:
 		shift_downs[0] = false;
 		shift_downs[1] = false;
+		if ( capture_mouse || relative_mouse ) ClipCursor(NULL);
+		get_events(wnd)->is_focused = false;
 		addState(Blur);
 		break;
 	case WM_WINDOWPOSCHANGED:
@@ -284,7 +452,7 @@ static LRESULT CALLBACK WndProc( HWND wnd, UINT umsg, WPARAM wparam, LPARAM lpar
 	}
 	case WM_SETCURSOR:
 		if( LOWORD(lparam) == HTCLIENT ) {
-			if( show_cursor )
+			if( CURSOR_VISIBLE )
 				SetCursor(cur_cursor != NULL ? cur_cursor : LoadCursor(NULL, IDC_ARROW));
 			else
 				SetCursor(NULL);
@@ -558,14 +726,33 @@ HL_PRIM bool HL_NAME(win_get_next_event)( dx_window *win, dx_event *e ) {
 	return true;
 }
 
-HL_PRIM void HL_NAME(win_clip_cursor)(dx_window *win) {
-	cur_clip_cursor_window = win;
-	if (win)
-		updateClipCursor(win);
-	else
-		ClipCursor(NULL);
+HL_PRIM void HL_NAME(win_clip_cursor)(dx_window *win, bool enable) {
+	capture_mouse = enable;
+	updateClipCursor(win);
 }
 
+HL_PRIM bool HL_NAME(set_cursor_pos)( int x, int y ) {
+	return SetCursorPos(x, y);
+}
+
+HL_PRIM bool HL_NAME(win_set_cursor_pos)( dx_window *wnd, int x, int y) {
+	if ( wnd ) {
+		POINT pt;
+		pt.x = x;
+		pt.y = y;
+		ClientToScreen(wnd, &pt);
+		return SetCursorPos(pt.x, pt.y);
+	}
+	return false;
+}
+
+HL_PRIM bool HL_NAME(win_set_relative_mouse_mode)( dx_window *wnd, bool enabled) {
+	return setRelativeMode(wnd, enabled);
+}
+
+HL_PRIM bool HL_NAME(win_get_relative_mouse_mode)() {
+	return relative_mouse;
+}
 
 HL_PRIM int HL_NAME(get_screen_width)() {
 	return GetSystemMetrics(SM_CXSCREEN);
@@ -594,7 +781,11 @@ DEFINE_PRIM(_F64, win_get_opacity, TWIN);
 DEFINE_PRIM(_BOOL, win_set_opacity, TWIN _F64);
 DEFINE_PRIM(_VOID, win_destroy, TWIN);
 DEFINE_PRIM(_BOOL, win_get_next_event, TWIN _DYN);
-DEFINE_PRIM(_VOID, win_clip_cursor, TWIN);
+DEFINE_PRIM(_VOID, win_clip_cursor, TWIN _BOOL);
+DEFINE_PRIM(_BOOL, set_cursor_pos, _I32 _I32);
+DEFINE_PRIM(_BOOL, win_set_cursor_pos, TWIN _I32 _I32);
+DEFINE_PRIM(_BOOL, win_set_relative_mouse_mode, TWIN _BOOL);
+DEFINE_PRIM(_BOOL, win_get_relative_mouse_mode, _NO_ARG);
 
 DEFINE_PRIM(_I32, get_screen_width, _NO_ARG);
 DEFINE_PRIM(_I32, get_screen_height, _NO_ARG);
@@ -654,13 +845,13 @@ HL_PRIM void HL_NAME(destroy_cursor)( dx_cursor c ) {
 
 HL_PRIM void HL_NAME(set_cursor)( dx_cursor c ) {
 	cur_cursor = c;
-	if( show_cursor )
+	if( CURSOR_VISIBLE )
 		SetCursor(c);
 }
 
 HL_PRIM void HL_NAME(show_cursor)( bool visible ) {
 	show_cursor = visible;
-	SetCursor(visible ? cur_cursor : NULL);
+	SetCursor(CURSOR_VISIBLE ? cur_cursor : NULL);
 }
 
 HL_PRIM bool HL_NAME(is_cursor_visible)() {

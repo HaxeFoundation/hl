@@ -4,6 +4,8 @@ package dx;
 	public var type : EventType;
 	public var mouseX : Int;
 	public var mouseY : Int;
+	public var mouseXRel : Int;
+	public var mouseYRel : Int;
 	public var button : Int;
 	public var wheelDelta : Int;
 	public var state : WindowStateChange;
