@@ -28,6 +28,7 @@ class Window {
 	public var title(default, set) : String;
 	public var width(get, never) : Int;
 	public var height(get, never) : Int;
+	public var windowToPixelRatio(get, never) : Float;
 	public var minWidth(get, never) : Int;
 	public var minHeight(get, never) : Int;
 	public var maxWidth(get, never) : Int;
@@ -110,6 +111,11 @@ class Window {
 		var h = 0;
 		winGetSize(win, null, h);
 		return h;
+	}
+
+	function get_windowToPixelRatio() {
+		// Not yet implemented
+		return 1.0;
 	}
 
 	function get_minWidth() {
