@@ -1,0 +1,15 @@
+<Project>
+  <ItemDefinitionGroup Condition="'$(SolutionName)' == 'hl_static'">
+    <ClCompile>
+      <PreprocessorDefinitions>LIBHL_STATIC;AL_LIBTYPE_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(SolutionName)' == 'hl_static'">
+    <ConfigType>StaticLibrary</ConfigType>
+    <TgExt>.lib</TgExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SolutionName)' != 'hl_static'">
+    <ConfigType>DynamicLibrary</ConfigType>
+    <TgExt>.hdll</TgExt>
+  </PropertyGroup>
+</Project>

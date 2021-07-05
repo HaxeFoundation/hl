@@ -150,9 +150,14 @@
 #	include <stdint.h>
 #endif
 
-#if defined(HL_VCC) || defined(HL_MINGW)
-#	define EXPORT __declspec( dllexport )
-#	define IMPORT __declspec( dllimport )
+#if (defined(HL_VCC) || defined(HL_MINGW))
+# if defined(LIBHL_STATIC)
+#	  define EXPORT
+#	  define IMPORT
+# else
+#	  define EXPORT __declspec( dllexport )
+#	  define IMPORT __declspec( dllimport )
+# endif
 #else
 #	define EXPORT
 #	define IMPORT extern
