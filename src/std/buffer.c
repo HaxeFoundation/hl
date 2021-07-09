@@ -131,11 +131,6 @@ int hl_buffer_length( hl_buffer *b ) {
 	return b->totlen;
 }
 
-typedef struct vlist {
-	vdynamic *v;
-	struct vlist *next;
-} vlist;
-
 static void hl_buffer_rec( hl_buffer *b, vdynamic *v, vlist *stack );
 
 static void hl_buffer_addr( hl_buffer *b, void *data, hl_type *t, vlist *stack ) {

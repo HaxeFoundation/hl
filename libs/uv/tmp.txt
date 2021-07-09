@@ -1,0 +1,29 @@
+HL_PRIM void HL_NAME(w_test)() {
+	puts("constants:");
+#define SHOW(c) printf(#c ": %x\n", c)
+
+	SHOW(O_APPEND);
+	SHOW(O_CREAT);
+	SHOW(O_DIRECT);
+	SHOW(O_DIRECTORY);
+	SHOW(O_DSYNC);
+	SHOW(O_EXCL);
+	//SHOW(O_EXLOCK);
+	SHOW(O_NOATIME);
+	SHOW(O_NOCTTY);
+	SHOW(O_NOFOLLOW);
+	SHOW(O_NONBLOCK);
+	//SHOW(O_RANDOM); // win only?
+	SHOW(O_RDONLY);
+	SHOW(O_RDWR);
+	//SHOW(O_SEQUENTIAL); // win only?
+	//SHOW(O_SHORT_LIVED); // win only?
+	//SHOW(O_SYMLINK);
+	SHOW(O_SYNC);
+	//SHOW(O_TEMPORARY); // win only?
+	SHOW(O_TRUNC);
+	SHOW(O_WRONLY);
+
+#undef SHOW
+}
+DEFINE_PRIM(_VOID, w_test, _NO_ARG);

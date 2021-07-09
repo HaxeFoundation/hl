@@ -186,18 +186,6 @@ if(BUILD_TESTING)
     )
 
     #####################
-    # uvsample.hl
-
-    add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample.hl
-        COMMAND ${HAXE_COMPILER}
-            -hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample.hl
-            -cp ${CMAKE_SOURCE_DIR}/other/uvsample -main UVSample
-    )
-    add_custom_target(uvsample.hl ALL
-        DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample.hl
-    )
-
-    #####################
     # hello.c
 
     add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/hello/hello.c
@@ -242,29 +230,6 @@ if(BUILD_TESTING)
     )
 
     #####################
-    # uvsample.c
-
-    add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample/uvsample.c
-        COMMAND ${HAXE_COMPILER}
-            -hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample/uvsample.c
-            -cp ${CMAKE_SOURCE_DIR}/other/uvsample -main UVSample
-    )
-    add_executable(uvsample
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample/uvsample.c
-    )
-    set_target_properties(uvsample
-        PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample
-    )
-    target_include_directories(uvsample
-        PRIVATE ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample
-    )
-    target_link_libraries(uvsample
-        libhl
-        uv.hdll
-    )
-
-    #####################
     # Tests
 
     add_test(NAME hello.hl
@@ -273,17 +238,11 @@ if(BUILD_TESTING)
     add_test(NAME threads.hl
         COMMAND hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/threads.hl
     )
-    add_test(NAME uvsample.hl
-        COMMAND hl ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test/uvsample.hl
-    )
     add_test(NAME hello
         COMMAND hello
     )
     add_test(NAME threads
         COMMAND threads
-    )
-    add_test(NAME uvsample
-        COMMAND uvsample
     )
     add_test(NAME version
         COMMAND hl --version

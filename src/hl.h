@@ -549,6 +549,11 @@ typedef struct _venum {
 	int index;
 } venum;
 
+typedef struct vlist {
+	vdynamic *v;
+	struct vlist *next;
+} vlist;
+
 HL_API hl_type hlt_void;
 HL_API hl_type hlt_i32;
 HL_API hl_type hlt_i64;
@@ -666,6 +671,8 @@ HL_API vdynamic *hl_dyn_call_safe( vclosure *c, vdynamic **args, int nargs, bool
 	(cl->hasValue ? ((ret(*)(vdynamic*,t1,t2,t3))cl->fun)(cl->value,v1,v2,v3) : ((ret(*)(t1,t2,t3))cl->fun)(v1,v2,v3))
 #define hl_call4(ret,cl,t1,v1,t2,v2,t3,v3,t4,v4) \
 	(cl->hasValue ? ((ret(*)(vdynamic*,t1,t2,t3,t4))cl->fun)(cl->value,v1,v2,v3,v4) : ((ret(*)(t1,t2,t3,t4))cl->fun)(v1,v2,v3,v4))
+#define hl_call5(ret,cl,t1,v1,t2,v2,t3,v3,t4,v4,t5,v5) \
+	(cl->hasValue ? ((ret(*)(vdynamic*,t1,t2,t3,t4,t5))cl->fun)(cl->value,v1,v2,v3,v4,v5) : ((ret(*)(t1,t2,t3,t4,t5))cl->fun)(v1,v2,v3,v4,v5))
 
 // ----------------------- THREADS --------------------------------------------------
 
